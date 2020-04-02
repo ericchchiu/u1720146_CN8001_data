@@ -13,6 +13,11 @@ Notes:
 
 tx2  <- gsub(pattern = '(^Q\\d+)(\\s)([A-Z,a-z,’]+\\s*[A-Z,a-z,']*\\s*[A-Z,a-z,']*\\s*)(:)(\\s)', replace = '\\1|\\3|', tx)
 
+(The convertion can also be performed by using the regular express function of notepad++:
+Find what: (^Q\d+)(\s)([A-Z,a-z,’]+\s*[A-Z,a-z,']*\s*[A-Z,a-z,']*\s*)(:)(\s)
+Replace with: \1|\3|
+(Replace All) )
+
 2. This file is formed by merging files 2/, 3/ and 4/; deleting all commented-out lines; and adding an index column called 'id' which allocated each line of the file a unique integer in ascending order starting from one. A sample R code line for merging two dataframes is shown below:
 
 df12 <- merge(df, df2, all = TRUE, sort = FALSE)
@@ -41,6 +46,6 @@ write.table(ngoEvidence, 'ngoEvidence.csv', quote = FALSE, sep = '|', row.names 
 
 The csv file (ngoEvidence.csv) can be used for, for example, producing a word cloud, performing close reading, coding, etc.
 
-8 March 2020
+2 April 2020
 
 
