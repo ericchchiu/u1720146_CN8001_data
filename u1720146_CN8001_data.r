@@ -265,6 +265,7 @@ ggplot(govtUttrnces_tdm_AssocsWords_df_government, aes(corrScore, assocsWords)) 
 ----------------------------------------
 code 10
 #attempt to use if-tdf to find out which query or queires of the terms of reference each question is belonged to
+#(see termsOfReference.csv for the six terms of reference)
 
 #input, clean and lemmatise the terms of reference  
 termsOfReference_df = read.csv('termsOfReference.csv', sep = '|', comment.char = '#', stringsAsFactors = FALSE)
@@ -279,11 +280,13 @@ termsOfReferenceCorpus_preproc = tm_map(termsOfReferenceCorpus_preproc, lemmatiz
 inspect(termsOfReferenceCorpus_preproc)
 hc245_tors = as.data.frame(termsOfReferenceCorpus_preproc)
 
-#input the 3 oral evidence files and combine them
+#import the 3 oral evidence files and combine them
 oral0618 <- read.csv('..\\..\\RQDAWorkingFolder\\u1720146_CN8001_oral_20140618.csv', comment.char = '#', sep = '|', stringsAsFactors = FALSE)
 oral0623 <- read.csv('..\\..\\RQDAWorkingFolder\\u1720146_CN8001_oral_20140623.csv', comment.char = '#', sep = '|', stringsAsFactors = FALSE)
 oral0708 <- read.csv('..\\..\\RQDAWorkingFolder\\u1720146_CN8001_oral_20140708.csv', comment.char = '#', sep = '|', stringsAsFactors = FALSE)
 oralAll <- rbind(oral0618, oral0623, oral0708)
+oralAll$id <- seq.int(nrow(oralAll))
+persons <- read.csv('u1720146_CN8001_persons.csv', comment.char = '#', sep = '|', stringsAsFactors = FALSE)
 
 #form a dataframe of all questions
 #answers to each question are concatened to form a document
@@ -292,12 +295,12 @@ dbWriteTable(conndb1, 'oralAll', oralAll)
 #dbWriteTable(conndb1, 'persons', persons)
 evidQsConcated <- dbGetQuery(conndb1, 'SELECT question, GROUP_CONCAT(oralEvidence, " ") AS oralEvidence FROM oralAll GROUP BY question')
 
-#form named list of the questions
+#form a named list of the questions
 evidQsConcated_list = as.list(evidQsConcated[,2])
 evidQsConcated_N.docs = length(evidQsConcated_list)
 names(evidQsConcated_list) = evidQsConcated[,1]
 
-#form named list of the tors (cleaned and lemmatised version)
+#form a named list of the tors (cleaned and lemmatised version)
 hc245_tors = read.csv('termsOfReference.txt', comment.char = '#', sep = '|', stringsAsFactors = FALSE)
 hc245_tors_list = unlist(hc245_tors[,2])
 hc245_tors_N.query = length(hc245_tors_list)
@@ -330,11 +333,10 @@ evidQsConcated_tfidf_mat <- evidQsConcated_tfidf_mat[, 1:evidQsConcated_N.docs]
 #calculate the similarity scores
 evidQsConcated_doc.scores <- t(hc245_tors.vectors) %*% evidQsConcated_tfidf_mat
 
-#change the tors list back to original questions
+#change the tors wording to original wording
 hc245_tors_list = unlist(termsOfReference_df[,2])
 names(hc245_tors_list) = paste0("query", c(1:hc245_tors_N.query))
 
-#form a dataframe of scores queries and scores
 evidQsConcated_results.df <- data.frame(querylist = hc245_tors_list,evidQsConcated_doc.scores)
 
 evidQsConcated_showTopresults <- function(query, noOfDocs){
@@ -347,4 +349,7 @@ evidQsConcated_showTopresults <- function(query, noOfDocs){
   return(yyy[which(yyy$score > 0),][1:noOfDocs,])
 }
 
+#find the top 20 questions which are, 
+#according to tf-idf, most related to terms of reference 1
+#(see termsOfReference.csv for the six terms of reference)
 evidQsConcated_showTopresults("What are the ethical concerns of using personal data and how is this data anonymised for research?", 20)

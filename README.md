@@ -1,3 +1,4 @@
+(This repository is in construction stage)
 This folder 'u1720146_CN8001_data' contains the following eight files:
 1/ README.TXT (this file)
 2/ u1720146_oral_20140618.csv (Note 1)
@@ -46,6 +47,6 @@ write.table(ngoEvidence, 'ngoEvidence.csv', quote = FALSE, sep = '|', row.names 
 
 The csv file (ngoEvidence.csv) can be used for, for example, producing a word cloud, performing close reading, coding, etc.
 
-2 April 2020
+8 April 2020
 
 
