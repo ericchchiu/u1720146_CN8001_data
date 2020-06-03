@@ -1,0 +1,6 @@
+#Text contained in the sample file 'csvText.txt':
+1|^"Why shouldn't they dig the man up and have the Crowner?" said the dyer.
+"It's been done many and many's the time. If there's been foul play they might find it out."^
+2|"'Good morning, D'Mari,' called D'Juan.
+""Good morning, D'Mari,"" called Jane."
+3|^^^ is called caret and ' is called single quote.^

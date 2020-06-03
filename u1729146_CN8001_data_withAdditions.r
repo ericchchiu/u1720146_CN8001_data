@@ -1,11 +1,8 @@
 #R code for text mining of the three transcripts of oral evidence
 #given to the parliamentary inquiry
-#code 01 - code 11:'Social media data and real time analytics' (HC245)
+#'Social media data and real time analytics' (HC245)
 #Word counts, word associations, word clouds and
-#tf-idf text analysis
-#code 12 finding the p-value by simulation
-#code 13 chi-squared test (independence test, by simulation and by the fisher method)
-#code 14 chi-squared test (one homogeneity test and two independence tests)
+#tf-idf text analysis 
 
 #----------------------------------------
 #code 01: 
@@ -13,14 +10,23 @@
 setwd(dirname(file.choose()))
 getwd()
 
+#load packages
+library(textstem)
+library(qdap)
+library(ggplot2)
+library(ggthemes)
+library(RColorBrewer)
+library(RSQLite)
+library(textstem)
+library(tm)
+library(wordcloud)
 #----------------------------------------
 #code 02:
 #import the three oral evidence data files and 
 #convert them to dataframes
-#then combine the three dataframes into one
-#then add an index column(id) to the combined file
-#then import u1720146_CN8001_persons.csv and convert it to a dataframe
-
+#combine the three dataframes to one
+#add an index column(id) to the combined file
+#import u1720146_CN8001_persons.csv and convert it to a dataframe
 oral0618 <- read.csv('u1720146_CN8001_oral_20140618.csv', comment.char = '#', sep = '|', stringsAsFactors = FALSE)
 oral0623 <- read.csv('u1720146_CN8001_oral_20140623.csv', comment.char = '#', sep = '|', stringsAsFactors = FALSE)
 oral0708 <- read.csv('u1720146_CN8001_oral_20140708.csv', comment.char = '#', sep = '|', stringsAsFactors = FALSE)
@@ -30,47 +36,36 @@ persons <- read.csv('u1720146_CN8001_persons.csv', comment.char = '#', sep = '|'
 
 #----------------------------------------
 #code 03:
-#create a sqlite database db1 or connect to it
-#copy oralAll and persons to db1 if they are not already there
-
-if (!require('RSQLite')) install.packages('RSQLite'); library('RSQLite')
-
+#create an sqlite database and copy the two dataframes to it
 conndb1 <- dbConnect(RSQLite::SQLite(), 'db1')
-dbListTables(conndb1) #inspect db1
+dbListTables(conndb1) #inspect the database db1
 
 #if tables oralAll or persons are not in db1
 #create them with the below two lines of code
-dbWriteTable(conndb1, 'oralAll', oralAll, overwrite = TRUE) #if db1 does not have oralALL
-dbWriteTable(conndb1, 'persons', persons, overwrite = TRUE) #if db1 does not have persons
+dbWriteTable(conndb1, 'oralAll', oralAll, overwrite = TRUE) #optional
+dbWriteTable(conndb1, 'persons', persons, overwrite = TRUE) #optional
 
 #----------------------------------------
 #code 04:
-#form a df of word count: top six most frequently used words of every witness
-
-#check whether tables oralALL and persons is already in db1
+#form a df of word count and top six most freequently used words
+#for every witnesses
+#check whether table oralALL is already in the database db1
 dbListTables(conndb1)
 
 #if tables oralAll and persons are already in db1
-#(if not, use above code 03 to produce them)
+#(if not, see above to produce them)
 #form a dataframe of utterances uttered by all witnesses 
 #ranked first by sectors then by witnesses (by alphabetical order)
 #evidence uttered by each witness are concatened to form a document
-
-evidWitnssConcated <- dbGetQuery(conndb1, "SELECT sector, persons.person AS person, GROUP_CONCAT(oralEvidence, ' ') AS oralEvidence FROM oralALL JOIN persons ON oralALL.person = persons.person WHERE sector <> 'member' GROUP BY persons.person ORDER BY sector, persons.person, oralEvidence")
-View(evidWitnssConcated) #inspect evidWitnssConcated
+evidWitnssConcated <- dbGetQuery(conndb1, "WITH evidWitnssConcated AS (SELECT sector, persons.person AS person, GROUP_CONCAT(oralEvidence, ' ') AS oralEvidence FROM oralALL JOIN persons ON oralALL.person = persons.person WHERE sector <> 'member' GROUP BY persons.person ORDER BY sector, persons.person) SELECT person, oralEvidence FROM evidWitnssConcated")
 
 #use qdap to form a df of word counts for all witnesses
-if (!require('qdap')) install.packages('qdap'); library(qdap)
 wordCount <- word_count(evidWitnssConcated$oralEvidence)
 evidWitnssConcated$wordCount <- wordCount
-evidWitnssConcated_wordCount <- evidWitnssConcated[,c(1,2,4)]
-View(evidWitnssConcated_wordCount) #inspect the wordCount df
+evidWitnssConcated_wordCount <- evidWitnssConcated[,c(1,3)]
+evidWitnssConcated_wordCount #inspect the wordCount df
 
-#a function for cleaning and lemmatising texts
-#tm is requiredd for forming a corpus and cleaning
-if (!require('tm')) install.packages('tm'); library(tm)
-#textstem is required for lemmatising
-if (!require('textstem')) install.packages('textstem'); library(textstem)
+#a function for cleaning and lemmatising texts (tm used)
 getFrmPersUttrnces_cleanNLemmatsdCrpus <- function(evidWitnssConcated_cell){
 corpus <- Corpus(VectorSource(evidWitnssConcated_cell))
 corpus <- tm_map(corpus, tolower)
@@ -86,14 +81,11 @@ corpus <- tm_map(corpus, stripWhitespace)
 return(corpus)
 }
 
-#a function for picking up the top six most frequently used lexicon words
-#qdap's freq_terms is used  
-top6Words <- function(x) return(freq_terms(getFrmPersUttrnces_cleanNLemmatsdCrpus(x), top = 6, at.least = 3, extend= FALSE)$WORD)
-#above: found go a high frequency word but has little solid meaning
-#so at.least = 3
+#a function for picking up the top six most frequently used lexicon words 
+top6Words <- function(x) return(freq_terms(getFrmPersUttrnces_cleanNLemmatsdCrpus(x), 6, extend= FALSE)$WORD)
 
 #form list of lists of six words for all witnesses
-listwitnss6TopWrds <- lapply(evidWitnssConcated$oralEvidence, top6Words)
+listwitnss6TopWrds <- lapply(evidWitnssConcated[,2], top6Words)
 
 #convert the list of lists to df 
 top6WordsDf <- as.data.frame(t(matrix(unlist(listwitnss6TopWrds), nrow=length(unlist(listwitnss6TopWrds[1])))))
@@ -103,119 +95,66 @@ colnames(top6WordsDf) <- c('mostFreq', '2nd', '3rd', '4th', '5th', '6th')
 
 #combine the wordCount df and the top six words df
 allWitnsWrdCuntNTop6Wrds <- cbind(evidWitnssConcated_wordCount, top6WordsDf)
+allWitnsWrdCuntNTop6Wrds <- allWitnsWrdCuntNTop6Wrds[order(allWitnsWrdCuntNTop6Wrds$person),]
 allWitnsWrdCuntNTop6Wrds #inspect the df of word counts and top six words
 
 #----------------------------------------
 #code 05:
-#use sqlite code to create a sql table and a dataframe of witnesses and #the utterances of them ranked by sectors, names and then 
-#question numbers
-witnssUttrnces <- dbGetQuery(conndb1, 'WITH witnssUttrnces AS (SELECT sector, persons.person AS person, id, question, oralEvidence FROM oralAll INNER JOIN persons ON oralAll.person = persons.person WHERE persons.sector <> "member" ORDER BY sector, person, id) SELECT sector, person, question, oralEvidence FROM witnssUttrnces')
+#use sqlite code to create a dataframe of witnesses and the utterances
+#of each and every of them ranked by their names and then question
+#numbers
+witnssUttrnces <- dbGetQuery(conndb1, 'WITH witnssUttrnces AS (SELECT persons.person AS person, id, question, oralEvidence FROM oralAll INNER JOIN persons ON oralAll.person = persons.person WHERE persons.sector <> "member" ORDER BY person, id) SELECT person, question, oralEvidence FROM witnssUttrnces')
 dbWriteTable(conndb1, 'witnssUttrnces', witnssUttrnces, overwrite = TRUE)
 
 #----------------------------------------
 #code 06:
-#create a dataframe of Timo Hannay and Emma Carr's utterances
+#commonality and comparison clouds for utterances of 
+#Carl Miller vs. Mr Vaizey, Carl Miller vs. Sir Nigel Shadbolt, and Carl Miller vs. Timo Hannay 
+#create a dataframe of Carl Miller and Timo Hannay's utterances(concated)...
+MVAndCMUttrnces <- dbGetQuery(conndb1, 'SELECT person, GROUP_CONCAT(oralEvidence," ") AS oralEvidence FROM witnssUttrnces WHERE person IN ("Carl Miller", "Mr Vaizey") GROUP BY person ORDER BY person')
+SNSAndCMUttrnces <- dbGetQuery(conndb1, 'SELECT person, GROUP_CONCAT(oralEvidence," ") AS oralEvidence FROM witnssUttrnces WHERE person IN ("Carl Miller", "Sir Nigel Shadbolt") GROUP BY person ORDER BY person')
+THAndCMUttrnces <- dbGetQuery(conndb1, 'SELECT person, GROUP_CONCAT(oralEvidence," ") AS oralEvidence FROM witnssUttrnces WHERE person IN ("Carl Miller", "Timo Hannay") GROUP BY person ORDER BY person')
 
-#use factor
-THAndECUttrnces_wthFactor <- dbGetQuery(conndb1, 'SELECT person, oralEvidence FROM witnssUttrnces WHERE person IN ("Emma Carr", "Timo Hannay")')
-
-#if do not use factor and concatenate cell contents with sql, the above sql code should be changed to as follows:
-#THAndECUttrnces <- dbGetQuery(conndb1, 'SELECT person, GROUP_CONCAT(oralEvidence," ") AS oralEvidence FROM witnssUttrnces WHERE person IN ("Emma Carr", "Timo Hannay") GROUP BY person ORDER BY person')
-
-#designate $person a factor
-THAndECUttrnces_wthFactor$person <- factor(THAndECUttrnces_wthFactor$person)
-
-#subset into two dataframes
-Emma_Carr_df <- subset(THAndECUttrnces_wthFactor, person == "Emma Carr")
-Timo_Hannay_df <- subset(THAndECUttrnces_wthFactor, person == "Timo Hannay")
-
-#combine, aggregate and concatenate the above two dataframes
-THAndECUttrnces <- rbind(Emma_Carr_df, Timo_Hannay_df)
-THAndECUttrnces <- aggregate(oralEvidence ~ person, THAndECUttrnces, paste, collapse = ' ')
-
-#clear data and produce tdm for Emma Carr and Timo Hannay
-#packages required: tm(corpus and cleaning) and textstem(lemmatize_strings)
-THAndECUttrnces_cor_cl <- Corpus(VectorSource(THAndECUttrnces$oralEvidence))
-THAndECUttrnces_cor_cl <- tm_map(THAndECUttrnces_cor_cl, tolower)
+prdceComparNCmmonClouds <- function(THAndCMUttrnces, witness1, witness2) {
+#clear data and produce tdm for Carl Miller and Timo Hannay
+THAndCMUttrnces_cor_cl <- Corpus(VectorSource(THAndCMUttrnces$oralEvidence))
+THAndCMUttrnces_cor_cl <- tm_map(THAndCMUttrnces_cor_cl, tolower)
 stop.word <- unlist(read.table("stop_word.txt", stringsAsFactors=FALSE))
-THAndECUttrnces_cor_cl <- tm_map(THAndECUttrnces_cor_cl, removeWords, stop.word)
-THAndECUttrnces_cor_cl <- tm_map(THAndECUttrnces_cor_cl, removeNumbers)
-THAndECUttrnces_cor_cl <- tm_map(THAndECUttrnces_cor_cl, removeWords, stopwords())
-THAndECUttrnces_cor_cl <- tm_map(THAndECUttrnces_cor_cl, removePunctuation)
+THAndCMUttrnces_cor_cl <- tm_map(THAndCMUttrnces_cor_cl, removeWords, stop.word)
+THAndCMUttrnces_cor_cl <- tm_map(THAndCMUttrnces_cor_cl, removeNumbers)
+THAndCMUttrnces_cor_cl <- tm_map(THAndCMUttrnces_cor_cl, removeWords, stopwords())
+THAndCMUttrnces_cor_cl <- tm_map(THAndCMUttrnces_cor_cl, removePunctuation)
 stop.char <- unlist(read.table("stop_char.txt", stringsAsFactors=FALSE))
-THAndECUttrnces_cor_cl <- tm_map(THAndECUttrnces_cor_cl, removeWords, stop.char)
-THAndECUttrnces_cor_cl <- tm_map(THAndECUttrnces_cor_cl, stripWhitespace)
-THAndECUttrnces_cor_cl <- tm_map(THAndECUttrnces_cor_cl, lemmatize_strings)
-THAndECUttrnces_tdm_cl <- TermDocumentMatrix(THAndECUttrnces_cor_cl)
-colnames(THAndECUttrnces_tdm_cl) <- c("Emma Carr", "Timo Hannay")
-THAndECUttrnces_tdm_cl
+THAndCMUttrnces_cor_cl <- tm_map(THAndCMUttrnces_cor_cl, removeWords, stop.char)
+THAndCMUttrnces_cor_cl <- tm_map(THAndCMUttrnces_cor_cl, stripWhitespace)
+THAndCMUttrnces_cor_cl <- tm_map(THAndCMUttrnces_cor_cl, lemmatize_strings)
+THAndCMUttrnces_tdm_cl <- TermDocumentMatrix(THAndCMUttrnces_cor_cl)
+colnames(THAndCMUttrnces_tdm_cl) <- c(witness1, witness2)
+THAndCMUttrnces_tdm_cl
 
 # coerce as a matrix
-THAndECUttrnces_tdm_cl <- as.matrix(THAndECUttrnces_tdm_cl)
-colnames(THAndECUttrnces_tdm_cl) <- c("Emma Carr", "Timo Hannay")
+THAndCMUttrnces_tdm_cl <- as.matrix(THAndCMUttrnces_tdm_cl)
+colnames(THAndCMUttrnces_tdm_cl) <- c(witness1, witness2)
 
 # assign a palette
-# package RColorBrewer is required
-if (!require('RColorBrewer')) install.packages('RColorBrewer'); library(RColorBrewer)
 pal <- brewer.pal(5, "Accent")
 
 # plot wordclouds
-#package wordcloud is required
-if (!require('wordcloud')) install.packages('wordcloud'); library(wordcloud)
 set.seed(12345)
-comparison.cloud(THAndECUttrnces_tdm_cl, scale=c(2,0.5), max.words = 50, rot.per = 0.3, random.order=FALSE, color=pal, title.size=2)
+comparison.cloud(THAndCMUttrnces_tdm_cl, scale=c(2,0.5), max.words = 50, rot.per = 0.3, random.order=FALSE, color=pal, title.size=2)
 set.seed(12345)
-commonality.cloud(THAndECUttrnces_tdm_cl, scale=c(5,0.5), max.words = 50, rot.per = 0.3, random.order=FALSE, color=pal, title.size=2)
+commonality.cloud(THAndCMUttrnces_tdm_cl, scale=c(5,0.5), max.words = 50, rot.per = 0.3, random.order=FALSE, color=pal, title.size=2)
+}
 
-
-#*******************************************
-##not use factor. commented out. just for reference.
-##commonality and comparison clouds for utterances of 
-##Emma Carr and Timo Hannay
-
-##create a dataframe of Timo Hannay and Emma Carr's utterances(concated)
-#THAndECUttrnces <- dbGetQuery(conndb1, 'SELECT person, GROUP_CONCAT(oralEvidence," ") AS oralEvidence FROM witnssUttrnces WHERE person IN ("Emma Carr", "Timo Hannay") GROUP BY person ORDER BY person')
-
-##clear data and produce tdm for Emma Carr and Timo Hannay
-##pa#ckages required: tm(corpus and cleaning) and textstem(lemmatize_strings)
-#THAndECUttrnces_cor_cl <- Corpus(VectorSource(THAndECUttrnces$oralEvidence))
-#THAndECUttrnces_cor_cl <- tm_map(THAndECUttrnces_cor_cl, tolower)
-#stop.word <- unlist(read.table("stop_word.txt", stringsAsFactors=FALSE))
-#THAndECUttrnces_cor_cl <- tm_map(THAndECUttrnces_cor_cl, removeWords, stop#.word)
-#THAndECUttrnces_cor_cl <- tm_map(THAndECUttrnces_cor_cl, removeNumbers)
-#THAndECUttrnces_cor_cl <- tm_map(THAndECUttrnces_cor_cl, removeWords, stopwords())
-#THAndECUttrnces_cor_cl <- tm_map(THAndECUttrnces_cor_cl, removePunctuation)
-#stop.char <- unlist(read.table("stop_char.txt", stringsAsFactors=FALSE))
-#THAndECUttrnces_cor_cl <- tm_map(THAndECUttrnces_cor_cl, removeWords, stop.char)
-#THAndECUttrnces_cor_cl <- tm_map(THAndECUttrnces_cor_cl, stripWhitespace)
-#THAndECUttrnces_cor_cl <- tm_map(THAndECUttrnces_cor_cl, lemmatize_strings)
-#THAndECUttrnces_tdm_cl <- TermDocumentMatrix(THAndECUttrnces_cor_cl)
-colnames(THAndECUttrnces_tdm_cl) <- c("Emma Carr", "Timo Hannay")
-#THAndECUttrnces_tdm_cl
-
-## coerce as a matrix
-#THAndECUttrnces_tdm_cl <- as.matrix(THAndECUttrnces_tdm_cl)
-#colnames(THAndECUttrnces_tdm_cl) <- c("Emma Carr", "Timo Hannay")
-
-## assign a palette
-## package RColorBrewer is required
-#if (!require('RColorBrewer')) install.packages('RColorBrewer'); library(RColorBrewer)
-#pal <- brewer.pal(5, "Accent")
-
-# plot wordclouds
-#package wordcloud is required
-#if (!require('wordcloud')) install.packages('wordcloud'); library(wordcloud)
-#set.seed(12345)
-#comparison.cloud(THAndECUttrnces_tdm_cl, scale=c(2,0.5), max.words = 50, rot.per = 0.3, random.order=FALSE, color=pal, title.size=2)
-#set.seed(12345)
-#commonality.cloud(THAndECUttrnces_tdm_cl, scale=c(5,0.5), max.words = 50, rot.per = 0.3, random.order=FALSE, color=pal, title.size=2)
+prdceComparNCmmonClouds(MVAndCMUttrnces, "Carl Miller", "Mr Vaizey")
+prdceComparNCmmonClouds(SNSAndCMUttrnces, "Carl Miller", "Sir Nigel Shadbolt")
+prdceComparNCmmonClouds(THAndCMUttrnces, "Carl Miller", "Timo Hannay")
 
 #----------------------------------------
 #code 07:
 #use functions to reduce repetition of code
 
-#7.1 function for forming a corpus and then cleaning and lemmatising it
-#packages required: tm (corpus and cleaning) and textstem (lemmatize_strings)
+#7.1 function for forming cleaned and lemmatised corpus from sector utterances
 getFrmSctorUttrnces_cleanNLemmatsdCrpus <- function(sctorUttrnces){
 sctorUttrnces_corpus <- Corpus(VectorSource(sctorUttrnces$oralEvidence))
 sctorUttrnces_corpus <- tm_map(sctorUttrnces_corpus, tolower)
@@ -231,19 +170,18 @@ sctorUttrnces_corpus <- tm_map(sctorUttrnces_corpus, stripWhitespace)
 return(sctorUttrnces_corpus)
 }
 
-#7.2 function for producing a word cloud with a corpus
-#package wordcloud is quired
+#7.2 function for producing a word cloud from a corpus
 prduceFrmSctorUttrnces_corpus_wordCloud <- function(sctorUttrnces_corpus){
 set.seed(12345)
 wordcloud(sctorUttrnces_corpus, scale=c(3,0.5), max.words = 100, rot.per = 0.3, random.order=FALSE, colors="black")
 }
 
-#7.3 function for producing a tdm with a corpus
+#7.3 function for producing a tdm from a corpus
 prduceFrmSctorUttrnces_corpus_tdm <- function(sctorUttrnces_corpus) return(TermDocumentMatrix(sctorUttrnces_corpus))
 
 #7.4 function for producing a csv file of word count list from a tdm
-#the list will be sorted first according to scores (descending) and
-#then according to alphabetical order (ascending)
+#the list shall be sorted first according to scores (descending) and
+#then according to alphabetical order of words (ascending)
 prduceFrmSctorUttrnces_tdm_WordCntCsvFile <- function(sctorUttrnces_tdm, fileNameIncldCsvSuffix){
 sctorUttrnces_wordCount <- as.data.frame(rowSums(as.matrix(sctorUttrnces_tdm)))
 sctorUttrnces_wordCount <- cbind(rownames(sctorUttrnces_wordCount), data.frame(sctorUttrnces_wordCount, row.names = NULL))
@@ -256,8 +194,7 @@ write.table(sctorUttrnces_wordCount, fileNameIncldCsvSuffix, quote = FALSE, sep 
 
 #7.5 function for finding word frequencies directly from a corpus by 
 #using the freq_terms function of the qdap package
-#the top topHowMany words and words mast at least have atLeast characters
-getFrmCorpus_frequenciesOfWords <- function(corpus, topHowMany, atLeast) return(freq_terms(as.data.frame(corpus), top = topHowMany, at.least = atLeast))
+getFrmCorpus_frequenciesOfWords <- function(corpus, topHowMany) return(freq_terms(as.data.frame(corpus), top = topHowMany))
 
 #7.6 function for producing an association word list from a 
 #dtm or a tdm
@@ -265,36 +202,41 @@ prduceFromDtmTdmAssocsWordsList <- function(dtmTdm, charVectWords, corLimitVect)
 
 #7.7 function for producing a df from an association word list
 produceFromAssocsWordsList_df <- function(tdmDtm_AssocsWordsList){
-return(list_vect2df(tdmDtm_AssocsWordsList, col1 = 'word', col2 = 'assocsWord', col3 = 'corrScore'))
+return(list_vect2df(tdmDtm_AssocsWordsList, col1 = 'word', col2 = 'assocsWords', col3 = 'corrScore'))
 }
 
 #----------------------------------------
 #code 08:
 #divide witnesses into the following four sectors:
-##academic(Professor Yates, Dr McPherson, Professor Preston, Sir Nigel
+#academic(Professor Yates, Dr McPherson, Professor Preston, Sir Nigel
 #Shadbolt, Professor McAuley, Professor van Zoonen, Dr d'Aquin,
-#Professor Robertson, Dr Macnish, Dr Elliot) total 10
-##business(Sureyya Cansoy, Timo Hannay) total 2
-##government(Steve Wood, Mr Vaizey) total 2
-##ngo(Carl Miller, Emma Carr, Professor De Roure) total 3
-
+#Professor Robertson, Dr Macnish, Dr Elliot), business(Sureyya Cansoy,
+#Timo Hannay), government(Steve Wood, Mr Vaizey) and 
+#ngo(Carl Miller, Emma Carr)
 #group utterances by sectors and treat replies to a question from a
 #sector a document
 #create a dataframe for each sector's utterances
-academicUttrnces  <- dbGetQuery(conndb1, "SELECT question, GROUP_CONCAT(oralEvidence,' ') AS oralEvidence FROM witnssUttrnces JOIN persons ON witnssUttrnces.person = persons.person WHERE persons.sector =  'academic' GROUP BY question ORDER BY question")
+academicUttrnces  <- dbGetQuery(conndb1, "SELECT question, GROUP_CONCAT(oralEvidence,' ') AS oralEvidence FROM witnssUttrnces JOIN persons ON witnssUttrnces.person = persons.person WHERE sector =  'academic' GROUP BY question ORDER BY question")
 
-businessUttrnces  <- dbGetQuery(conndb1, "SELECT question, GROUP_CONCAT(oralEvidence,' ') AS oralEvidence FROM witnssUttrnces JOIN persons ON witnssUttrnces.person = persons.person WHERE persons.sector =  'business' GROUP BY question ORDER BY question")
+businessUttrnces  <- dbGetQuery(conndb1, "SELECT question, GROUP_CONCAT(oralEvidence,' ') AS oralEvidence FROM witnssUttrnces JOIN persons ON witnssUttrnces.person = persons.person WHERE sector =  'business' GROUP BY question ORDER BY question")
 
-govtUttrnces <- dbGetQuery(conndb1, "SELECT question, GROUP_CONCAT(oralEvidence,' ') AS oralEvidence FROM witnssUttrnces JOIN persons ON witnssUttrnces.person = persons.person WHERE persons.sector =  'government' GROUP BY question ORDER BY question")
+govtUttrnces <- dbGetQuery(conndb1, "SELECT question, GROUP_CONCAT(oralEvidence,' ') AS oralEvidence FROM witnssUttrnces JOIN persons ON witnssUttrnces.person = persons.person WHERE sector =  'government' GROUP BY question ORDER BY question")
 
-ngoUttrnces  <- dbGetQuery(conndb1, "SELECT question, GROUP_CONCAT(oralEvidence,' ') AS oralEvidence FROM witnssUttrnces JOIN persons ON witnssUttrnces.person = persons.person WHERE persons.sector =  'ngo' GROUP BY question ORDER BY question")
+ngoUttrnces  <- dbGetQuery(conndb1, "SELECT question, GROUP_CONCAT(oralEvidence,' ') AS oralEvidence FROM witnssUttrnces JOIN persons ON witnssUttrnces.person = persons.person WHERE sector =  'ngo' GROUP BY question ORDER BY question")
+
+#code 08_1 create a dataframe for all witnesses' utterances concatenated
+allWitnessesUttrnces  <- dbGetQuery(conndb1, "SELECT question, GROUP_CONCAT(oralEvidence,' ') AS oralEvidence FROM witnssUttrnces JOIN persons ON witnssUttrnces.person = persons.person WHERE sector <>  'member' GROUP BY question ORDER BY question")
+
+#code 08_2 create a dataframe for final report the summary part concatenated
+responsibleUseOfData <- read.csv('u1720146_CN8001_Responsible_Use_of_Data.csv', comment.char = '#', quote = '^"\'', sep = '|', stringsAsFactors = FALSE)
+dbWriteTable(conndb1, 'responsibleUseOfData', responsibleUseOfData, overwrite = TRUE)
+responsibleUseOfDataConcatd  <- dbGetQuery(conndb1, "SELECT paraNo, GROUP_CONCAT(content,' ') AS oralEvidence FROM responsibleUseOfData")
 
 #----------------------------------------
 #code 09:
-#performing text mining on dataframes created with code 08 above
-#with functions shown on code 07 above
+#code for applying the above functions to perform text mining
 
-#9.1 code for producing a cleaned and lemmatised corpus with the
+#9.1 code for producing a clean and lemmatised corpus with the
 #utterances of witnesseses of each and every sector
 #academic
 academicUttrnces_corpus <- getFrmSctorUttrnces_cleanNLemmatsdCrpus(academicUttrnces)
@@ -305,7 +247,15 @@ govtUttrnces_corpus <- getFrmSctorUttrnces_cleanNLemmatsdCrpus(govtUttrnces)
 #ngo
 ngoUttrnces_corpus <- getFrmSctorUttrnces_cleanNLemmatsdCrpus(ngoUttrnces)
 
-#9.2 code for producing a word cloud for every sector
+#9.1_1 #all witnesses
+allWitnessesUttrnces_corpus <- getFrmSctorUttrnces_cleanNLemmatsdCrpus(allWitnessesUttrnces)
+
+#9.1_2 #final report the summary part
+responsibleUseOfDataConcatd_corpus <- getFrmSctorUttrnces_cleanNLemmatsdCrpus(responsibleUseOfDataConcatd)
+
+
+#9.2 code for producing a word cloud with each and every 
+#sector utterance corpus
 #academic
 prduceFrmSctorUttrnces_corpus_wordCloud(academicUttrnces_corpus) #7.2
 #business
@@ -315,7 +265,13 @@ prduceFrmSctorUttrnces_corpus_wordCloud(govtUttrnces_corpus)
 #ngo
 prduceFrmSctorUttrnces_corpus_wordCloud(ngoUttrnces_corpus)
 
-#9.3 code for producing a tdm for every sector
+#9.2_1 #all witnesses
+prduceFrmSctorUttrnces_corpus_wordCloud(allWitnessesUttrnces_corpus)
+
+#9.2_2 #final report the summary part
+prduceFrmSctorUttrnces_corpus_wordCloud(responsibleUseOfDataConcatd_corpus)
+
+#9.3 code for producing a tdm from each and every sector corpus
 #academic
 academicUttrnces_tdm <- prduceFrmSctorUttrnces_corpus_tdm(academicUttrnces_corpus) #7.3
 #business
@@ -325,7 +281,8 @@ govtUttrnces_tdm <- prduceFrmSctorUttrnces_corpus_tdm(govtUttrnces_corpus)
 #ngo
 ngoUttrnces_tdm <- prduceFrmSctorUttrnces_corpus_tdm(ngoUttrnces_corpus)
 
-#9.4 code for producing a csv file of word freqency list for every sector
+#9.4 code for producing a csv file of word freqency list
+#with each and every tdm
 #academic
 prduceFrmSctorUttrnces_tdm_WordCntCsvFile(academicUttrnces_tdm, 'academicUttrncesWordCount.csv') #7.4
 #business
@@ -339,13 +296,14 @@ prduceFrmSctorUttrnces_tdm_WordCntCsvFile(ngoUttrnces_tdm, 'ngoUttrncesWordCount
 #corpus instead of from tdm or dtm (results should be the same 
 #as those contained in the abovementioned csv files) 
 #academic
-academic_wordFrequency <- getFrmCorpus_frequenciesOfWords(academicUttrnces_corpus, 20, 3) #7.5
+academic_wordFrequency <- getFrmCorpus_frequenciesOfWords(academicUttrnces_corpus, 20) #7.5
 #business
-business_wordFrequency <- getFrmCorpus_frequenciesOfWords(businessUttrnces_corpus, 20, 3)
+business_wordFrequency <- getFrmCorpus_frequenciesOfWords(businessUttrnces_corpus, 20)
 #government
-govt_wordFrequency <- getFrmCorpus_frequenciesOfWords(govtUttrnces_corpus, 20, 3)
+govt_wordFrequency <- getFrmCorpus_frequenciesOfWords(govtUttrnces_corpus, 20)
 #ngo
-ngo_wordFrequency <- getFrmCorpus_frequenciesOfWords(ngoUttrnces_corpus, 20, 3)
+ngo_wordFrequency <- getFrmCorpus_frequenciesOfWords(ngoUttrnces_corpus, 20)
+
 #forming a dataframe of the top 20 most frequent words of all sectors
 
 #9.6 code for producing a dataframe which showing the 
@@ -367,34 +325,48 @@ govtUttrnces_tdm_AssocsWordsList <- prduceFromDtmTdmAssocsWordsList(govtUttrnces
 #ngo
 ngoUttrnces_tdm_AssocsWordsList <- prduceFromDtmTdmAssocsWordsList(ngoUttrnces_tdm, charVectWords, corLimitVect)
 
+#9.7_1 allWitnessesUttrnces
+allWitnessesUttrnces_tdm <- prduceFrmSctorUttrnces_corpus_tdm(allWitnessesUttrnces_corpus)
+charVectWords2 <- c('legislation', 'research', 'people', 'social')
+corLimitVect2 <- c(0.5, 0.5, 0.5, 0.5)
+allWitnessesUttrnces_tdm_AssocsWordsList <- prduceFromDtmTdmAssocsWordsList(allWitnessesUttrnces_tdm, charVectWords2, corLimitVect2)
+
+
 #9.8 code for producing a dataframe from the association word lists in respect the government sector corpus
 govtUttrnces_AssocsWords_df <- produceFromAssocsWordsList_df(govtUttrnces_tdm_AssocsWordsList) #7.7
 #show part of the df: words associated with 'government'. corLimit = 0.5
 govtUttrnces_AssocsWords_df[58:105,]
+
+#9.8_1 allWitnessesUttrnces
+allWitnessesUttrnces_df <- produceFromAssocsWordsList_df(allWitnessesUttrnces_tdm_AssocsWordsList) #7.7
+#show the df: words associated with 'legislation'. corLimit = 0.5
+allWitnessesUttrnces_df
 
 #----------------------------------------
 #code 10:
 #code for plotting a graph of those words associated with the word
 #'government' with the correlation value equal or higher than 0.5 in the
 #government sector utterances corpus
-#packages ggplot2 and ggthemes are required
-
-if (!require('ggplot2')) install.packages('ggplot2'); library(ggplot2)
-if (!require('ggthemes')) install.packages('ggthemes'); library(ggthemes)
 
 #use the list vector obtained from code 9.7 above
-govtUttrnces_tdm_AssocsWords_df_government <- list_vect2df(govtUttrnces_tdm_AssocsWordsList[2, drop = FALSE], col1 = "wordOfWhchAssWrdsTBFound", col2 = "assocsWords", col3 = "corrScore")
-govtUttrnces_tdm_AssocsWords_df_government
+govtUttrnces_tdm_AssocsWords_df_government <- list_vect2df(govtUttrnces_tdm_AssocsWordsList[2, drop = FALSE], col2 = "assocsWords", col3 = "corrScore")
 
-#use the df obtained from the code above to plot the graph
+#use the df obtained from code 9.8 above to plot the graph
 govtUttrnces_tdm_AssocsWords_df_government <- govtUttrnces_AssocsWords_df[is.element(govtUttrnces_AssocsWords_df$word, 'government'),][,2:3]
-ggplot(govtUttrnces_tdm_AssocsWords_df_government, aes(corrScore, assocsWord)) + 
+ggplot(govtUttrnces_tdm_AssocsWords_df_government, aes(corrScore, assocsWords)) + 
   geom_point(size = 3) +   ggtitle('govtWtnsses_OralEvidence_WordsAssocsWth_government') +
+  theme_gdocs()
+  
+#code 10_1: allWitnessesUttrnces
+allWitnessesUttrnces_tdm_AssocsWords_df_legislation <- list_vect2df(allWitnessesUttrnces_tdm_AssocsWordsList[1, drop = FALSE], col2 = "assocsWords", col3 = "corrScore")
+allWitnessesUttrnces_tdm_AssocsWords_df_legislation <- allWitnessesUttrnces_df[is.element(allWitnessesUttrnces_df$word, 'legislation'),][,2:3]
+ggplot(allWitnessesUttrnces_tdm_AssocsWords_df_legislation, aes(corrScore, assocsWords)) + 
+  geom_point(size = 3) +   ggtitle('allWitnesses_OralEvidence_WordsAssocsWth_legislation') +
   theme_gdocs()
 
 #----------------------------------------
 #code 11
-#attempt to use tf-idf to find which query or queires of 
+#attempt to use if-tdf to find out which query or queires of 
 #the terms of reference each question is belonged to
 #(see termsOfReference.csv for the six terms of reference)
 

@@ -1,29 +1,29 @@
-person|sector|description
-Chair|member|Andrew Miller, Labour, Ellesmere Port and Neston
-Sureyya Cansoy|business|Director, Tech for Business and Consumer Programmes, techUK
-Timo Hannay|business|Managing Director, Digital Science
-Carl Miller|ngo|Research Director, Centre for the Analysis of Social Media, Demos
-Stephen Metcalfe|member|Conservative, South Basildon and East Thurrock
-Graham Stringer|member|Labour, Blackley and Broughton
-Mr Heath|member|Liberal Democrat, Somerton and Frome
-Pamela Nash|member|Labour, Airdrie and Shotts
-Jim Dowd|member|Labour, Lewisham West and Penge
-Professor Yates|academic|Visiting Professor, Consumer Data Research Centre, University of Leeds
-Dr McPherson|academic|Research Fellow, University of Cambridge
-Professor Preston|academic|Professor of Education, University of East London
-Stephen Mosley|member|Conservative, City of Chester
-Sir Nigel Shadbolt|academic|Professor of Artificial Intelligence, Web Science Trust
-Professor McAuley|academic|Professor of Digital Economy in the School of Computer Science and Director of Horizon, Horizon Digital Economy Research Institute
-Professor De Roure|ngo|Director, Oxford e-Research Institute and ESRC Strategic Adviser for Data Resources, Economic and Social Research Council
-Professor van Zoonen|academic|Professor of Communication and Media Studies, Loughborough University
-Dr d'Aquin|academic|Research Fellow, the Open University
-Professor Robertson|academic|Head of School of Informatics, University of Edinburgh, representing the UK Computing Research Committee
-Emma Carr|ngo|Acting Director, Big Brother Watch
-Dr Macnish|academic|Teaching Fellow and Consultant, Inter-Disciplinary Applied Ethics Centre, University of Leeds, gave evidence
-Dr Elliot|academic|Senior Lecturer, Confidentiality and Privacy Research Issues group, University of Manchester
-Steve Wood|government|Head of Policy Delivery, Information Commissioner's Office
-Mr Vaizey|government|Parliamentary Under-Secretary of State for Culture, Communications and Creative Industries, Department for Culture, Media and Sport
-David Tredinnick|member|Conservative, Bosworth
+person|panel|sector|description
+Chair|member|member|Andrew Miller, Labour, Ellesmere Port and Neston
+Sureyya Cansoy|panel1|business|Director, Tech for Business and Consumer Programmes, techUK
+Timo Hannay|panel1|business|Managing Director, Digital Science
+Carl Miller|panel1|ngo|Research Director, Centre for the Analysis of Social Media, Demos
+Stephen Metcalfe|member|member|Conservative, South Basildon and East Thurrock
+Graham Stringer|member|member|Labour, Blackley and Broughton
+Mr Heath|member|member|Liberal Democrat, Somerton and Frome
+Pamela Nash|member|member|Labour, Airdrie and Shotts
+Jim Dowd|member|member|Labour, Lewisham West and Penge
+Professor Yates|panel2|academic|Visiting Professor, Consumer Data Research Centre, University of Leeds
+Dr McPherson|panel2|academic|Research Fellow, University of Cambridge
+Professor Preston|panel2|academic|Professor of Education, University of East London
+Stephen Mosley|member|member|Conservative, City of Chester
+Sir Nigel Shadbolt|panel3|academic|Professor of Artificial Intelligence, Web Science Trust
+Professor McAuley|panel3|academic|Professor of Digital Economy in the School of Computer Science and Director of Horizon, Horizon Digital Economy Research Institute
+Professor De Roure|panel3|ngo|Director, Oxford e-Research Institute and ESRC Strategic Adviser for Data Resources, Economic and Social Research Council
+Professor van Zoonen|panel4|academic|Professor of Communication and Media Studies, Loughborough University
+Dr d'Aquin|panel4|academic|Research Fellow, the Open University
+Professor Robertson|panel4|academic|Head of School of Informatics, University of Edinburgh, representing the UK Computing Research Committee
+Emma Carr|panel4|ngo|Acting Director, Big Brother Watch
+Dr Macnish|panel5|academic|Teaching Fellow and Consultant, Inter-Disciplinary Applied Ethics Centre, University of Leeds, gave evidence
+Dr Elliot|panel5|academic|Senior Lecturer, Confidentiality and Privacy Research Issues group, University of Manchester
+Steve Wood|panel5|government|Head of Policy Delivery, Information Commissioner's Office
+Mr Vaizey|panel6|government|Parliamentary Under-Secretary of State for Culture, Communications and Creative Industries, Department for Culture, Media and Sport
+David Tredinnick|member|member|Conservative, Bosworth
 
 
 
