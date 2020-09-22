@@ -1,4 +1,4 @@
-This folder 'u1720146_CN8001_data' contains, among others, the following eight files:
+This folder 'u1720146_CN8001_data' contains, among others, the following 14 files:
 1/ README.TXT (this file)
 2/ u1720146_oral_20140618.csv (Note 1)
 3/ u1720146_oral_20140623.csv (Note 1)
